@@ -1,10 +1,17 @@
+#include <Arduino.h>
+
 // Kit_BattleBot.ino: BattleBot control with RemoteXY for AMUVa (https://github.com/amuva)
 // El proyecto de RemoteXY está disponible en https://remotexy.com/en/editor/b5e110518a57fbec4cab4b3ce0b6206d/
 
-// IMPORTANTE: Descargar las librerías RemoteXY y ESP32Servo.
-// IMPORTANTE: Descargar la app RemoteXY y elegir Bluetooth BLE (con Bluetooth encendido).
-// IMPORTANTE: Elegir el tipo de arma que tiene tu robot a continuación:
+// IMPORTANTE: Descargar las librerías RemoteXY y ESP32Servo en Arduino IDE. También el paquete "boards" esp32.
+//             Conectar la ESP32C3, seleccionar el puerto correspondiente y la placa ESP32C3 Dev Module.
+//             Descargar la app RemoteXY y elegir Bluetooth BLE (con Bluetooth encendido).
 
+// IMPORTANTE: Editar a continación el nombre y cotraseña del robot en Bluetooth BLE:
+#define REMOTEXY_BLUETOOTH_NAME "Mi BattleBot"
+#define REMOTEXY_ACCESS_PASSWORD "1234"
+
+// IMPORTANTE: Elegir el tipo de arma que tiene tu robot a continuación:
 #define ARMA 2 // Cambia el número por 0 = BLDC, 1 = Servo
 
 /*
@@ -54,11 +61,6 @@ version 2.1 of the License, or (at your option) any later version.
 
 #include <BLEDevice.h>
 
-// RemoteXY connection settings 
-#define REMOTEXY_BLUETOOTH_NAME "Mi BattleBot"
-#define REMOTEXY_ACCESS_PASSWORD "1234"
-
-
 #include <RemoteXY.h>
 
 // RemoteXY GUI configuration  
@@ -70,7 +72,7 @@ uint8_t RemoteXY_CONF[] =   // 128 bytes
   28,98,34,26,26,99,32,24,24,0,2,82,84,69,83,84,0,129,55,2,
   91,10,60,2,82,9,60,2,82,9,64,78,65,77,85,86,97,32,75,105,
   116,32,66,97,116,116,108,101,98,111,116,0,4,145,16,22,69,146,15,21,
-  63,146,14,20,60,16,2,26 };
+  63,146,14,20,60,16*(1-ARMA),2,26 };
 
 // this structure defines all the variables and events of your control interface
 struct {
@@ -91,7 +93,6 @@ struct {
 //           END RemoteXY include          //
 /////////////////////////////////////////////
 
-#include <Arduino.h>
 #include <ESP32Servo.h>
 
 class Kit_BattleBot {
@@ -104,24 +105,31 @@ public:
     : s1Pin(S1Pin), s2Pin(S2Pin), weaponPin(WeaponPin) {}
 
   void begin() {
-    angle.attach(s1Pin, 1000, 2000);
-    throttle.attach(s2Pin, 1000, 2000);
+    #if ARMA == 0
+    pinMode(weaponPin, OUTPUT);
+    digitalWrite(weaponPin, 0);
+    delay(1000);
+    #endif
+    angle.attach(s2Pin, 1000, 2000);
+    throttle.attach(s1Pin, 1000, 2000);
     weapon.attach(weaponPin, 1000, 2000);
-    stopMotors();
+    stop();
   }
 
   void move(int forwardSpeed, int turnSpeed) {
-    int throttleValue = map(forwardSpeed, -100, 100, 0, 180);
-    int angleValue = map(turnSpeed, -100, 100, 0, 180);
+    int throttleValue = map(forwardSpeed, -100, 100, 0, 180)+5;
+    int angleValue = map(turnSpeed, -100, 100, 0, 180)+1;
 
     throttle.write(throttleValue);
     angle.write(angleValue);
   }
 
-  void stopMotors() {
-    throttle.write(90);       // Stop the motors by setting to neutral position
-    angle.write(90);          // Stop the motors by setting to neutral position
+  void stop() {
+    throttle.write(95);       // Stop the motors by setting to neutral position
+    angle.write(91);          // Stop the motors by setting to neutral position
+    #if ARMA == 0
     weapon.write(90 * ARMA);  // Stop the weapon by setting to neutral position
+    #endif
   }
 
   void setWeapon(int angle) {
@@ -131,7 +139,7 @@ public:
 };
 
 #define LED 8
-Kit_BattleBot myrobot(0, 1, 3);  // S1, S2, Weapon
+Kit_BattleBot myrobot(0, 1, 3);  // S2, S1, Weapon
 
 void setup() {
   RemoteXY_Init();
@@ -139,7 +147,7 @@ void setup() {
   pinMode(LED, OUTPUT);
 
   myrobot.begin();
-  myrobot.stopMotors();
+  myrobot.stop();
 
   RemoteXY.joystick_01_x = 0;
   RemoteXY.joystick_01_y = 0;
@@ -155,6 +163,6 @@ void loop() {
     myrobot.move(RemoteXY.joystick_01_y, RemoteXY.joystick_01_x);
     myrobot.setWeapon(RemoteXY.slider_01);
   } else {
-    myrobot.stopMotors();
+      myrobot.stop();
   }
 }
