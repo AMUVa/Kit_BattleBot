@@ -139,7 +139,7 @@ public:
 };
 
 #define LED 8
-Kit_BattleBot myrobot(0, 1, 3);  // S2, S1, Weapon
+Kit_BattleBot myrobot(0, 1, 3);  // S1, S2, Weapon
 
 void setup() {
   RemoteXY_Init();
